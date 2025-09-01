@@ -65,7 +65,6 @@ const mask = (s = "", show = 4) =>
 
 log("🚀 Starting backend");
 log("Node:", process.version, "| cwd:", process.cwd());
-log("GEMINI_API_KEY present:", !!process.env.GEMINI_API_KEY, "value:", mask(process.env.GEMINI_API_KEY || ""));
 log("DATABASE_URL present:", !!process.env.DATABASE_URL);
 
 // --- MIME HELPER ---
@@ -114,11 +113,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// ---------- GENERATIVE AI CLIENT ----------
-if (!process.env.GEMINI_API_KEY) {
-  log("❌ GEMINI_API_KEY not set – Gemini calls will fail");
-}
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "DUMMY_KEY");
+
+const ai = new GoogleGenerativeAI("AIzaSyAm6-XaSLdkKp4vjDJmifOey-y9ipKwzMA" || "DUMMY_KEY");
 
 // ---------- DEBUG ROUTES ----------
 
@@ -129,14 +125,14 @@ app.get("/health", (req, res) => {
     uptime_s: Math.round((Date.now() - startTS) / 1000),
     node: process.version,
     uploadsDir: uploadDir,
-    geminiKeyPresent: !!process.env.GEMINI_API_KEY,
+    geminiKeyPresent: !!"AIzaSyAm6-XaSLdkKp4vjDJmifOey-y9ipKwzMA",
   });
 });
 
 // test Gemini API directly
 app.get("/debug/gemini", async (req, res) => {
   try {
-    if (!process.env.GEMINI_API_KEY) {
+    if (!"AIzaSyAm6-XaSLdkKp4vjDJmifOey-y9ipKwzMA") {
       return res.status(400).json({ ok: false, error: "No GEMINI_API_KEY set in env" });
     }
     const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });

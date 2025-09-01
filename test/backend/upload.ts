@@ -5,11 +5,27 @@ import * as FileSystem from 'expo-file-system';
 // --- Gemini API client (using fetch) ---
 export async function callGemini(fileBase64: string, mimeType: string): Promise<any> {
   const promptText = mimeType.startsWith("image/")
-    ? `You are an OCR engine specialized in extracting tables from images. Return JSON with {title, columns, rows}.`
-    : `You are a document parser. Extract ALL tables as JSON array with {title, columns, rows}.`;
+    ? `You are an OCR engine specialized in extracting ALL tables from the given image.
+Return a JSON array where each item has the shape:
+{
+  "title": "string (caption or description, or 'Untitled Table')",
+  "columns": ["col1", "col2", ...],
+  "rows": [["row1col1", "row1col2", ...], ...]
+}
+
+⚠️ Rules:
+- If multiple tables exist in the image, return ALL of them as separate objects in the array.
+- Keep numbers as plain digits (no commas like 60,090).
+- Keep Hindi text exactly as-is (don’t translate).
+- Do not merge different tables into one.
+- Do not wrap in markdown fences.
+- Be strict JSON (no comments, no text outside JSON).`
+    : `You are a document parser. Extract ALL tables as JSON array with {title, columns, rows}. Same strict rules as above.`;
+
+  console.log("📝 Gemini OCR Prompt:", promptText.slice(0, 200) + "...");
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyAm6-XaSLdkKp4vjDJmifOey-y9ipKwzMA`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -28,12 +44,26 @@ export async function callGemini(fileBase64: string, mimeType: string): Promise<
   );
 
   const json = await response.json();
-  console.log("Gemini response:", JSON.stringify(json, null, 2));
+  console.log("📩 Raw Gemini response:", JSON.stringify(json, null, 2));
+
   const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  console.log("📜 Raw text output:", rawText);
+
   const cleaned = rawText.replace(/```json|```/g, "").trim();
-  console.log("Cleaned JSON:", cleaned);
-  return JSON.parse(cleaned);
+  console.log("🧹 Cleaned JSON:", cleaned);
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    console.error("❌ JSON.parse failed:", err);
+    throw new Error("Gemini did not return valid JSON.");
+  }
+
+  console.log("✅ Final parsed tables:", parsed);
+  return parsed;
 }
+
 
 // --- Helper function to read file as base64 in React Native ---
 async function readFileAsBase64(uri: string): Promise<string> {

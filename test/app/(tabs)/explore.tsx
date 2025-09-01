@@ -1,11 +1,9 @@
-// App.tsx — TypeScript + Integrated getJsonData
-
+// explore.tsx
 import React, { useState } from "react";
 import {
   View,
   Text,
   Button,
-  TextInput,
   StyleSheet,
   Alert,
   Platform,
@@ -13,10 +11,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import Constants from "expo-constants";
-
-// 👇 Import the helper function
+import ClearCache from "../../components/ClearCache";
 import { getJsonData } from "../../backend/upload";
+import TablesViewer, { TableData } from "../../components/TablesViewer";
 
 let Sharing: any = null;
 let Print: any = null;
@@ -29,90 +26,15 @@ if (Platform.OS !== "web") {
   }
 }
 
-// ---------- Types ----------
-interface TableData {
-  title: string;
-  columns: string[];
-  rows: string[][];
-}
-
 interface FileInfo {
   uri: string;
   name: string;
   mimeType: string;
 }
 
-// ---------- Helpers ----------
-function safeParseJson<T = any>(str: string, fallback: T | null = null): T | null {
-  try {
-    return JSON.parse(str);
-  } catch {
-    return fallback;
-  }
-}
-
-function ensureArray(v: unknown): any[] {
-  if (Array.isArray(v)) return v;
-  if (typeof v === "string") {
-    const p = safeParseJson(v, null);
-    if (Array.isArray(p)) return p;
-  }
-  return [];
-}
-
-function normalizeServerTable(tbl: any): TableData {
-  if (!tbl) return { title: "Untitled", columns: [], rows: [] };
-
-  const columns = ensureArray(tbl.columns);
-  let rowsRaw: any = tbl.rows ?? tbl.data ?? [];
-
-  if (typeof rowsRaw === "string") {
-    const parsed = safeParseJson(rowsRaw, null);
-    if (parsed !== null) rowsRaw = parsed;
-  }
-
-  let rows: string[][] = [];
-  if (Array.isArray(rowsRaw)) {
-    if (rowsRaw.length === 0) {
-      rows = [];
-    } else if (!Array.isArray(rowsRaw[0]) && typeof rowsRaw[0] === "object") {
-      const cols = columns.length ? columns : Object.keys(rowsRaw[0]);
-      rows = rowsRaw.map((obj: any) => cols.map((c) => String(obj?.[c] ?? "")));
-      return { title: tbl.title || "Untitled", columns: cols, rows };
-    } else if (Array.isArray(rowsRaw[0])) {
-      rows = rowsRaw.map((r) =>
-        Array.isArray(r)
-          ? r.map((c) => (c === null || c === undefined ? "" : String(c)))
-          : []
-      );
-    } else {
-      rows = rowsRaw.map((r: any) => [String(r ?? "")]);
-    }
-  } else {
-    rows = [];
-  }
-
-  const finalCols = columns.length
-    ? columns
-    : rows.length && Array.isArray(rows[0])
-    ? rows[0].map((_, i) => `col${i + 1}`)
-    : [];
-
-  const normalizedRows = rows.map((r) => {
-    const targetLen = finalCols.length;
-    const copy = Array.from(r);
-    while (copy.length < targetLen) copy.push("");
-    if (copy.length > targetLen) copy.length = targetLen;
-    return copy;
-  });
-
-  return { title: tbl.title || "Untitled", columns: finalCols, rows: normalizedRows };
-}
-
-// ---------- Component ----------
 export default function App() {
   const [file, setFile] = useState<FileInfo | null>(null);
-  const [table, setTable] = useState<TableData | null>(null);
+  const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -137,23 +59,21 @@ export default function App() {
     }
   };
 
-  // Parse file locally with Gemini/CSV/XLSX logic
+  // Parse file with backend
   const parseFile = async () => {
     if (!file?.uri) return Alert.alert("Pick a file first");
     setLoading(true);
-    setStatus("Parsing file locally…");
+    setStatus("Parsing file…");
     try {
-      // Convert RN File to a File-like object for getJsonData
-
       const data = await getJsonData(file);
-      console.log(data)
+      console.log("Raw server data:", data);
 
       if (data?.tables?.length > 0) {
-        const normalized = normalizeServerTable(data.tables[0]);
-        setTable(normalized);
+        setTables(data.tables);
         setStatus("Parsed successfully ✅");
       } else {
-        setTable(data?.tables)
+        setTables([]);
+        setStatus("No tables found");
       }
     } catch (e: any) {
       Alert.alert("Parse error", e?.message || String(e));
@@ -163,31 +83,19 @@ export default function App() {
     }
   };
 
-  const safeTable = table ? normalizeServerTable(table) : null;
-
-  const renderCell = (ri: number, ci: number, value: string) => (
-    <TextInput
-      key={`r${ri}c${ci}`}
-      style={styles.cell}
-      value={String(value ?? "")}
-      onChangeText={(txt) => {
-        if (!safeTable) return;
-        const rows = (safeTable.rows || []).map((r) => (Array.isArray(r) ? [...r] : []));
-        rows[ri][ci] = txt;
-        setTable({ ...safeTable, rows });
-      }}
-    />
-  );
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>📊 Lekhapal Mobile</Text>
 
-      {!safeTable && (
+      {tables.length === 0 && !loading && (
         <View style={styles.controls}>
           <Button title="Pick File" onPress={pickFile} />
           <View style={{ height: 10 }} />
-          <Button title="Parse File" onPress={parseFile} disabled={!file || loading} />
+          <Button
+            title="Parse File"
+            onPress={parseFile}
+            disabled={!file || loading}
+          />
         </View>
       )}
 
@@ -198,45 +106,27 @@ export default function App() {
         </View>
       )}
 
-      {safeTable && !loading && (
-        <View style={styles.card}>
-          <Text style={styles.subtitle}>{safeTable.title}</Text>
-          <ScrollView horizontal>
-            <View>
-              <View style={styles.row}>
-                {safeTable.columns.map((c, i) => (
-                  <Text key={`h${i}`} style={[styles.cell, styles.header]}>
-                    {c}
-                  </Text>
-                ))}
-              </View>
-              {safeTable.rows.map((row, ri) => (
-                <View key={`r${ri}`} style={styles.row}>
-                  {row.map((cell, ci) => renderCell(ri, ci, cell))}
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-      )}
+      {tables.length > 0 && !loading && <TablesViewer tables={tables} />}
+
+      <ClearCache
+        resetStates={{
+          file: setFile,
+          table: () => setTables([]),
+          status: setStatus,
+        }}
+        afterClear={() => console.log("✅ Cache cleared and states reset")}
+      />
     </ScrollView>
   );
 }
 
-// ---------- Styles ----------
 const styles = StyleSheet.create({
-  container: { padding: 20, paddingTop: 56, backgroundColor: "#fafafa", minHeight: "100%" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 6 },
-  subtitle: { fontSize: 18, fontWeight: "600", marginBottom: 8 },
-  controls: { marginBottom: 12 },
-  card: { backgroundColor: "#fff", padding: 12, borderRadius: 10, elevation: 2 },
-  row: { flexDirection: "row" },
-  cell: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 6,
-    minWidth: 100,
-    fontSize: 14,
+  container: {
+    padding: 20,
+    paddingTop: 56,
+    backgroundColor: "#fafafa",
+    minHeight: "100%",
   },
-  header: { fontWeight: "700", backgroundColor: "#eee" },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 6 },
+  controls: { marginBottom: 12 },
 });
