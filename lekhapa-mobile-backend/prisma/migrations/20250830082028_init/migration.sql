@@ -1,0 +1,8 @@
+-- CreateTable
+CREATE TABLE "TableData" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "title" TEXT,
+    "columns" TEXT NOT NULL,
+    "rows" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
