@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, ScrollView, Button, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  Button,
+  StyleSheet,
+  Alert,
+} from "react-native";
+import { supabase } from "../auth/supabaseClient"; // 👈 your Supabase client
 
 export interface TableData {
   title: string;
@@ -7,28 +16,27 @@ export interface TableData {
   rows: string[][];
 }
 
-// ✅ Normalize: pad rows so all are same length as columns
 function normalizeTable(table: TableData) {
   if (!table) return table;
   const colCount = table.columns?.length || 0;
   const rows = (table.rows || []).map((r) => {
     const row = Array.isArray(r) ? [...r] : [];
-    while (row.length < colCount) row.push(""); // pad missing
-    if (row.length > colCount) row.length = colCount; // trim extras
+    while (row.length < colCount) row.push("");
+    if (row.length > colCount) row.length = colCount;
     return row;
   });
   return { ...table, rows };
 }
 
-export default function TablesViewer({ tables }: { tables: TableData[] }) {
+export default function TablesViewer({ tables , isView }: { tables: TableData[] , isView?: boolean}) {
+  const [tableList, setTableList] = useState(tables.map(normalizeTable));
   const [activeIndex, setActiveIndex] = useState(0);
 
-  if (!tables || tables.length === 0) {
+  if (!tableList || tableList.length === 0) {
     return <Text>No tables to display</Text>;
   }
 
-  const safeTables = tables.map(normalizeTable);
-  const activeTable = safeTables[activeIndex];
+  const activeTable = tableList[activeIndex];
 
   const renderCell = (ri: number, ci: number, value: string) => (
     <TextInput
@@ -39,17 +47,60 @@ export default function TablesViewer({ tables }: { tables: TableData[] }) {
         const updatedRows = [...activeTable.rows];
         updatedRows[ri] = [...updatedRows[ri]];
         updatedRows[ri][ci] = txt;
+
         const updated = { ...activeTable, rows: updatedRows };
-        safeTables[activeIndex] = updated;
+        const updatedList = [...tableList];
+        updatedList[activeIndex] = updated;
+        setTableList(updatedList);
       }}
     />
   );
 
+  // ✅ Save function
+  const handleSave = async () => {
+    try {
+      // Get the logged-in user
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        Alert.alert("Error", "You must be logged in to save a table.");
+        return;
+      }
+
+      const { error } = await supabase.from("scans").insert([
+        {
+          user_id: user.id,
+          title: activeTable.title || `Table ${activeIndex + 1}`,
+          tables_data: activeTable, // 👈 store as JSONB
+        },
+      ]);
+
+      if (error) throw error;
+
+      // Remove the saved table from the list
+      const updatedList = tableList.filter((_, idx) => idx !== activeIndex);
+
+      setTableList(updatedList);
+      setActiveIndex(0);
+
+      Alert.alert("Success", "Table saved successfully!");
+    } catch (err: any) {
+      Alert.alert("Save Failed", err.message || "Something went wrong");
+    }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       {/* Tabs for switching tables */}
-      <ScrollView horizontal style={styles.tabBar} showsHorizontalScrollIndicator={false}>
-        {safeTables.map((t, idx) => (
+      <ScrollView
+        horizontal
+        style={styles.tabBar}
+        showsHorizontalScrollIndicator={false}
+      >
+        {tableList.map((t, idx) => (
           <Button
             key={idx}
             title={t.title || `Table ${idx + 1}`}
@@ -81,6 +132,11 @@ export default function TablesViewer({ tables }: { tables: TableData[] }) {
             ))}
           </View>
         </ScrollView>
+
+        {/* ✅ Save Button */}
+        {!isView && <View style={{ marginTop: 12 }}>
+          <Button title="Save Table" onPress={handleSave} color="#4CAF50" />
+        </View>}
       </View>
     </View>
   );

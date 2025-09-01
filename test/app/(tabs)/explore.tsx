@@ -106,7 +106,7 @@ export default function App() {
         </View>
       )}
 
-      {tables.length > 0 && !loading && <TablesViewer tables={tables} />}
+      {tables.length > 0 && !loading && <TablesViewer tables={tables} isView={false} />}
 
       <ClearCache
         resetStates={{
