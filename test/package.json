@@ -36,6 +36,7 @@
     "expo-web-browser": "~14.2.0",
     "install": "^0.13.0",
     "jspdf": "^3.0.2",
+    "lottie-react-native": "^7.3.4",
     "npm": "^11.5.2",
     "papaparse": "^5.5.3",
     "react": "19.0.0",

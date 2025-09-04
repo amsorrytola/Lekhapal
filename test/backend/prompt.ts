@@ -1,7 +1,8 @@
 /**
  * @fileoverview This file contains detailed and generalized prompts for various document types.
  * Each prompt is designed to instruct the Gemini model to extract information and format it
- * into a predictable JSON structure, handling variations in column headers and layout.
+ * into a predictable JSON structure, handling variations in column headers, layout,
+ * and both typed + handwritten entries.
  */
 
 /**
@@ -31,6 +32,7 @@ Output format:
 - Use the heading above the table as the "title" (e.g., "SHG Loan Repayment"). If no heading, create a descriptive title (e.g., "Member Loan Details for [Member Name]").
 - The "columns" array must contain the exact column headers as they appear in the table.
 - The "rows" array must contain a nested array for each row, where each cell value is a string.
+- Extract values from BOTH typed and handwritten text. Do not skip handwritten entries.
 - Preserve all Hindi text and characters **exactly** as written (don’t translate).
 - Keep numbers plain (e.g., 60090, not "60,090").
 - If a cell is blank or the value is missing, use an empty string "" to pad the row.
@@ -38,9 +40,11 @@ Output format:
 - Only return the JSON array. No explanations, no extra text.`;
 
   switch (documentType) {
-    case 'SHG Profile':
+    case "SHG Profile":
       return `
-You are a document parser specializing in SHG profile documents. Extract all key-value data into a single JSON object.
+You are a document parser specializing in SHG profile documents. 
+Extract ALL information (both printed and handwritten) into a single JSON object.
+
 Return a STRICT JSON object only. Do not include any markdown formatting (e.g., \`\`\`json).
 
 Expected JSON Structure:
@@ -65,27 +69,40 @@ Expected JSON Structure:
       "dateOfJoining": "string (in DD/MM/YY or DD/MM/YYYY format)",
       "dateOfLeaving": "string (in DD/MM/YY or DD/MM/YYYY format)"
     }
-  ]
+  ],
+  "balanceDetails": {
+    "balanceAsOn": "string",
+    "cashBalance": "string",
+    "bankBalance": "string",
+    "memberTotalSaving": "string",
+    "memberOutstandingLoan": "string",
+    "savingAccountNo": "string",
+    "bankNameAndBranch": "string",
+    "ifsc": "string",
+    "ccLoanAccountNo": "string",
+    "ccLoanBankNameAndBranch": "string",
+    "ccLoanIfsc": "string",
+    "mobileNumbers": ["string"]
+  }
 }
 
-Extraction Rules:
-- The keys in the JSON must match the \`shgProfile\` and \`members\` object keys exactly.
-- Extract the value corresponding to each label (e.g., "NAME OF SHG") and assign it to the correct key.
-- If a value is split across multiple lines, concatenate it into a single string.
+⚠️ Extraction Rules:
+- Extract values from BOTH typed and handwritten text. Do not skip handwritten entries.
+- The keys in the JSON must match the \`shgProfile\`, \`members\`, and \`balanceDetails\` object keys exactly.
 - Preserve Hindi text and numbers exactly as they appear in the image.
 - For members, create an array where each member is an object with \`sNo\`, \`name\`, \`id\`, \`dateOfJoining\`, and \`dateOfLeaving\`.
-- If a value is not present for a field, assign it an empty string "".
-- Do not extract balance, bank details, or any other information outside the SHG Profile and Members sections.
+- If a value is not present, assign an empty string "".
+- Include handwritten fields like account numbers, IFSC codes, and phone numbers inside \`balanceDetails\`.
 - Only return the JSON object. No explanations, no extra text.
 `;
 
-    case 'Receipts by SHG':
-    case 'Expenditure by SHG':
-    case 'Savings':
-    case 'Loan Taken & Repayment by SHG':
+    case "Receipts by SHG":
+    case "Expenditure by SHG":
+    case "Savings":
+    case "Loan Taken & Repayment by SHG":
       return genericTablePrompt;
 
-    case 'Loan Taken & Repayment by Members':
+    case "Loan Taken & Repayment by Members":
       return `You are an OCR engine that extracts **all member-specific loan tables** from a scanned document.
 Return a STRICT JSON array of objects. Do not include any markdown formatting (e.g., \`\`\`json).
 
@@ -107,13 +124,14 @@ Output format:
 - Use the member's name as the "title" for each table object.
 - The "columns" array must contain the exact column headers from each member's table.
 - The "rows" array must contain a nested array for each row, with values as strings.
+- Extract values from BOTH typed and handwritten text. Do not skip handwritten entries.
 - Preserve all Hindi text and characters **exactly** as written.
 - Keep numbers plain.
 - If a cell is blank or the value is missing, use an empty string "" to pad the row.
 - Ensure the number of elements in each row matches the number of columns.
 - Only return the JSON array. No explanations, no extra text.`;
 
-    case 'Others':
+    case "Others":
       return genericTablePrompt;
 
     default:
