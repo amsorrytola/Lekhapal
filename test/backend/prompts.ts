@@ -39,8 +39,7 @@ Output format:
 
   switch (documentType) {
     case 'SHG Profile':
-      return `
-You are a document parser specializing in SHG profile documents. Extract all key-value data into a single JSON object.
+      return `You are a document parser specializing in SHG profile documents. Extract all key-value data into a single JSON object.
 Return a STRICT JSON object only. Do not include any markdown formatting (e.g., \`\`\`json).
 
 Expected JSON Structure:
@@ -56,28 +55,17 @@ Expected JSON Structure:
     "blockName": "string",
     "districtName": "string",
     "joiningDateInVo": "string (in DD/MM/YY or DD/MM/YYYY format)"
-  },
-  "members": [
-    {
-      "sNo": "number",
-      "name": "string",
-      "id": "string",
-      "dateOfJoining": "string (in DD/MM/YY or DD/MM/YYYY format)",
-      "dateOfLeaving": "string (in DD/MM/YY or DD/MM/YYYY format)"
-    }
-  ]
+  }
 }
 
 Extraction Rules:
-- The keys in the JSON must match the \`shgProfile\` and \`members\` object keys exactly.
+- The keys in the JSON must match the \`shgProfile\` object keys exactly.
 - Extract the value corresponding to each label (e.g., "NAME OF SHG") and assign it to the correct key.
 - If a value is split across multiple lines, concatenate it into a single string.
 - Preserve Hindi text and numbers exactly as they appear in the image.
-- For members, create an array where each member is an object with \`sNo\`, \`name\`, \`id\`, \`dateOfJoining\`, and \`dateOfLeaving\`.
-- If a value is not present for a field, assign it an empty string "".
-- Do not extract balance, bank details, or any other information outside the SHG Profile and Members sections.
-- Only return the JSON object. No explanations, no extra text.
-`;
+- Handle edge cases where a field might be missing; if a value is not present, use an empty string "" for its value.
+- Do not extract any other tables or information, only the main SHG Profile section.
+- Only return the JSON object. No explanations, no extra text.`;
 
     case 'Receipts by SHG':
     case 'Expenditure by SHG':
@@ -103,8 +91,8 @@ Output format:
 ]
 
 ⚠️ Extraction Rules:
-- Each member's loan record section (e.g., "Meमूना बाबू पटेल" or "Lalita") is a separate table.
-- Use the member's name as the "title" for each table object.
+- [cite_start]Each member's loan record section (e.g., "Meमूना बाबू पटेल" or "Lalita") is a separate table. [cite: 377, 493, 494]
+- [cite_start]Use the member's name as the "title" for each table object. [cite: 371, 377, 483, 488, 493]
 - The "columns" array must contain the exact column headers from each member's table.
 - The "rows" array must contain a nested array for each row, with values as strings.
 - Preserve all Hindi text and characters **exactly** as written.
