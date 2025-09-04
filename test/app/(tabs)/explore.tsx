@@ -9,8 +9,10 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import ClearCache from "../../components/ClearCache";
 import { getJsonData } from "../../backend/upload";
 import TablesViewer, { TableData } from "../../components/TablesViewer";
@@ -32,14 +34,14 @@ interface FileInfo {
   mimeType: string;
 }
 
-export default function App() {
+export default function App({ prompt }: { prompt?: string }) {
   const [file, setFile] = useState<FileInfo | null>(null);
   const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
 
-  // Pick file
-  const pickFile = async () => {
+  // Pick from device
+  const pickFromDevice = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
         type: ["application/pdf", "text/csv", "image/*"],
@@ -56,6 +58,32 @@ export default function App() {
       });
     } catch (e: any) {
       Alert.alert("File picker error", e?.message || String(e));
+    }
+  };
+
+  // Capture from camera
+  const pickFromCamera = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        return Alert.alert("Permission required", "Camera access is needed.");
+      }
+
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+      });
+
+      if (res.canceled) return;
+
+      const asset = res.assets[0];
+      setFile({
+        uri: asset.uri,
+        name: `camera-${Date.now()}.jpg`,
+        mimeType: "image/jpeg",
+      });
+    } catch (e: any) {
+      Alert.alert("Camera error", e?.message || String(e));
     }
   };
 
@@ -89,13 +117,31 @@ export default function App() {
 
       {tables.length === 0 && !loading && (
         <View style={styles.controls}>
-          <Button title="Pick File" onPress={pickFile} />
+          <Button title="📂 Select from Device" onPress={pickFromDevice} />
+          <View style={{ height: 10 }} />
+          <Button title="📸 Capture from Camera" onPress={pickFromCamera} />
           <View style={{ height: 10 }} />
           <Button
             title="Parse File"
             onPress={parseFile}
             disabled={!file || loading}
           />
+        </View>
+      )}
+
+      {/* Preview uploaded file */}
+      {file && (
+        <View style={styles.previewBox}>
+          <Text style={{ fontWeight: "600" }}>📄 Preview:</Text>
+          {file.mimeType?.startsWith("image/") ? (
+            <Image
+              source={{ uri: file.uri }}
+              style={{ width: "100%", height: 200, marginTop: 8, borderRadius: 8 }}
+              resizeMode="contain"
+            />
+          ) : (
+            <Text style={{ marginTop: 8 }}>File: {file.name}</Text>
+          )}
         </View>
       )}
 
@@ -106,7 +152,9 @@ export default function App() {
         </View>
       )}
 
-      {tables.length > 0 && !loading && <TablesViewer tables={tables} isView={false} />}
+      {tables.length > 0 && !loading && (
+        <TablesViewer tables={tables} isView={false} />
+      )}
 
       <ClearCache
         resetStates={{
@@ -129,4 +177,12 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 6 },
   controls: { marginBottom: 12 },
+  previewBox: {
+    marginVertical: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+  },
 });

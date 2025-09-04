@@ -1,28 +1,15 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import * as FileSystem from 'expo-file-system';
+import { getPrompt } from "./prompt";
 
-// --- Gemini API client (using fetch) ---
-export async function callGemini(fileBase64: string, mimeType: string): Promise<any> {
+export async function callGemini(fileBase64: string, mimeType: string, documentType: string): Promise<any> {
+  // Use the new getPrompt function to select the appropriate prompt based on the document type
   const promptText = mimeType.startsWith("image/")
-    ? `You are an OCR engine specialized in extracting ALL tables from the given image.
-Return a JSON array where each item has the shape:
-{
-  "title": "string (caption or description, or 'Untitled Table')",
-  "columns": ["col1", "col2", ...],
-  "rows": [["row1col1", "row1col2", ...], ...]
-}
+    ? getPrompt(documentType)
+    : getPrompt("Others"); // Fallback to a generic table prompt for non-image files
 
-⚠️ Rules:
-- If multiple tables exist in the image, return ALL of them as separate objects in the array.
-- Keep numbers as plain digits (no commas like 60,090).
-- Keep Hindi text exactly as-is (don’t translate).
-- Do not merge different tables into one.
-- Do not wrap in markdown fences.
-- Be strict JSON (no comments, no text outside JSON).`
-    : `You are a document parser. Extract ALL tables as JSON array with {title, columns, rows}. Same strict rules as above.`;
-
-  console.log("📝 Gemini OCR Prompt:", promptText.slice(0, 200) + "...");
+  console.log("📝 Gemini OCR Prompt:", promptText.slice(0, 300) + "...");
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyAm6-XaSLdkKp4vjDJmifOey-y9ipKwzMA`,
