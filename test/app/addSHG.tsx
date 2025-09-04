@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { supabase } from "@/auth/supabaseClient";
 
 interface Member {
   name: string;
@@ -17,6 +18,63 @@ interface Member {
 }
 
 export default function AddSHGScreen() {
+
+  const handleSave = async () => {
+  try {
+    // 1️⃣ Insert SHG into `shgs`
+    const { data: shg, error: shgError } = await supabase
+      .from("shgs")
+      .insert([
+        {
+          name: shgData.name,
+          date_of_formation: shgData.dateOfFormation || null,
+          meeting_frequency: shgData.meetingFrequency,
+          village_name: shgData.village,
+          gram_panchayat_name: shgData.gramPanchayat,
+          vo_name: shgData.voName,
+          clf_name: shgData.clfName,
+          block_name: shgData.blockName,
+          district_name: shgData.districtName,
+          joining_date_vo: shgData.joiningDateVO || null,
+          cash_balance: shgData.cashBalance || null,
+          bank_balance: shgData.bankBalance || null,
+          saving_bank_ac: shgData.savingAccount,
+          bank_branch: shgData.bankBranch,
+          ifsc: shgData.ifsc,
+          mobile1: shgData.mobile1,
+          mobile2: shgData.mobile2,
+        },
+      ])
+      .select()
+      .single();
+
+    if (shgError) throw shgError;
+
+    const shgId = shg.id;
+
+    // 2️⃣ Insert Members into `shg_members`
+    if (shgData.members.length > 0) {
+      const membersPayload = shgData.members.map((m) => ({
+        shg_id: shgId,
+        name: m.name,
+        member_id: m.id || null,
+        date_of_joining: m.dateOfJoining || null,
+        date_of_leaving: m.dateOfLeaving || null,
+      }));
+
+      const { error: memberError } = await supabase
+        .from("shg_members")
+        .insert(membersPayload);
+
+      if (memberError) throw memberError;
+    }
+
+    alert("✅ SHG saved successfully!");
+  } catch (err: any) {
+    console.error("Save error:", err);
+    alert("❌ Failed to save SHG: " + err.message);
+  }
+};
   const [shgData, setShgData] = useState({
     name: "",
     dateOfFormation: "",
@@ -249,7 +307,7 @@ export default function AddSHGScreen() {
         <Text style={styles.btnText}>Auto-fill from OCR</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.saveBtn}>
+      <TouchableOpacity style={styles.saveBtn} onPress={() => handleSave()}>
         <Text style={styles.btnText}>Save SHG</Text>
       </TouchableOpacity>
     </ScrollView>

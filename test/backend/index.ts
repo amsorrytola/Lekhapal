@@ -114,7 +114,7 @@ app.use((req, res, next) => {
 });
 
 
-const ai = new GoogleGenerativeAI("AIzaSyAm6-XaSLdkKp4vjDJmifOey-y9ipKwzMA" || "DUMMY_KEY");
+const ai = new GoogleGenerativeAI("AIzaSyAm6-XaSLdkKp4vjDJmifOey-y9ipKwzMA");
 
 // ---------- DEBUG ROUTES ----------
 

@@ -1,7 +1,8 @@
 // app/shg/[id].tsx
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert } from "react-native";
+import { supabase } from "@/auth/supabaseClient"; // make sure your Supabase client is exported here
 
 const sections = [
   "SHG Profile",
@@ -15,33 +16,63 @@ const sections = [
 
 export default function ShgDetailsPage() {
   const { id } = useLocalSearchParams();
+  console.log("SHG Details Page - ID:", id);
   const router = useRouter();
 
   const [shg, setShg] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Simulate fetching SHG details
+  // Fetch SHG details from Supabase
+  const fetchShg = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("shgs")
+      .select("id, name, employee, status")
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      console.error("Error fetching SHG:", error);
+      Alert.alert("Error", error.message);
+    } else {
+      setShg(data);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    // Normally fetch from API using id
-    const dummyData = {
-      id,
-      name: `SHG ${id}`,
-      employee: "Raj",
-      status: "Open",
-    };
-    setShg(dummyData);
+    if (id) fetchShg();
   }, [id]);
 
-  if (!shg) return <Text>Loading...</Text>;
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+        <Text>Loading SHG details...</Text>
+      </View>
+    );
+  }
+
+  if (!shg) {
+    return (
+      <View style={styles.center}>
+        <Text>No SHG found for this ID.</Text>
+      </View>
+    );
+  }
 
   const handleSectionClick = (section: string) => {
     // Navigate to nested pages like /shg/[id]/profile, etc.
-    router.push(`/upload/${section}`);
+    router.push({
+      pathname: '/upload',
+      params: { id: id, section }
+    });
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Details of {shg.name}</Text>
-      <Text style={styles.subText}>Added by: {shg.employee}</Text>
+      <Text style={styles.subText}>Added by: {shg.employee || "N/A"}</Text>
       <Text style={styles.subText}>Status: {shg.status}</Text>
 
       <Text style={styles.sectionTitle}>Sections</Text>
@@ -49,7 +80,10 @@ export default function ShgDetailsPage() {
         data={sections}
         keyExtractor={(item) => item}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.sectionBtn} onPress={() => handleSectionClick(item)}>
+          <TouchableOpacity
+            style={styles.sectionBtn}
+            onPress={() => handleSectionClick(item)}
+          >
             <Text style={styles.sectionText}>{item}</Text>
           </TouchableOpacity>
         )}
@@ -70,4 +104,5 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionText: { fontSize: 15 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

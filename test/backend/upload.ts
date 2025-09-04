@@ -102,7 +102,7 @@ function parseXlsxBuffer(buffer: ArrayBuffer) {
 }
 
 // --- Main unified function for React Native/Expo ---
-export async function getJsonData(file: any): Promise<any> {
+export async function getJsonData(file: any, documentType: string): Promise<any> {
   let base64: string;
   let buffer: ArrayBuffer;
 
@@ -142,7 +142,7 @@ export async function getJsonData(file: any): Promise<any> {
     console.log(mime)
     console.log("base64", base64.substring(0, 30) + "...");
     console.log("Uploading to Gemini API for parsing...");
-    const tables = await callGemini(base64, mime);
+    const tables = await callGemini(base64, mime, documentType);
     console.log("Parsed tables from Gemini:", tables);
     return {tables};
   }

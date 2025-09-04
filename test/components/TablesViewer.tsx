@@ -28,9 +28,23 @@ function normalizeTable(table: TableData) {
   return { ...table, rows };
 }
 
-export default function TablesViewer({ tables , isView }: { tables: TableData[] , isView?: boolean}) {
+export default function TablesViewer({
+  tables,
+  isView,
+  id,
+  docType,
+}: {
+  tables: TableData[];
+  isView?: boolean;
+  id?: string; // SHG id
+  docType?: string; // document type
+}) {
   const [tableList, setTableList] = useState(tables.map(normalizeTable));
   const [activeIndex, setActiveIndex] = useState(0);
+  console.log("TablesViewer - tables:", tables);
+  console.log("TablesViewer - isView:", isView);
+  console.log("TablesViewer - SHG ID:", id);
+  console.log("TablesViewer - Document Type:", docType);
 
   if (!tableList || tableList.length === 0) {
     return <Text>No tables to display</Text>;
@@ -59,6 +73,11 @@ export default function TablesViewer({ tables , isView }: { tables: TableData[] 
   // ✅ Save function
   const handleSave = async () => {
     try {
+      if (!id || !docType) {
+        Alert.alert("Error", "Missing SHG ID or document type.");
+        return;
+      }
+
       // Get the logged-in user
       const {
         data: { user },
@@ -70,19 +89,18 @@ export default function TablesViewer({ tables , isView }: { tables: TableData[] 
         return;
       }
 
-      const { error } = await supabase.from("scans").insert([
+      const { error } = await supabase.from("shg_documents").insert([
         {
-          user_id: user.id,
-          title: activeTable.title || `Table ${activeIndex + 1}`,
-          tables_data: activeTable, // 👈 store as JSONB
+          shg_id: id, // 👈 store SHG id
+          doc_type: docType, // 👈 store document type
+          contents: activeTable, // 👈 store JSONB
         },
       ]);
 
       if (error) throw error;
 
-      // Remove the saved table from the list
+      // Remove saved table from the list
       const updatedList = tableList.filter((_, idx) => idx !== activeIndex);
-
       setTableList(updatedList);
       setActiveIndex(0);
 
@@ -134,9 +152,11 @@ export default function TablesViewer({ tables , isView }: { tables: TableData[] 
         </ScrollView>
 
         {/* ✅ Save Button */}
-        {!isView && <View style={{ marginTop: 12 }}>
-          <Button title="Save Table" onPress={handleSave} color="#4CAF50" />
-        </View>}
+        {!isView && (
+          <View style={{ marginTop: 12 }}>
+            <Button title="Save Table" onPress={handleSave} color="#4CAF50" />
+          </View>
+        )}
       </View>
     </View>
   );

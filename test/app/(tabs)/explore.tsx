@@ -34,11 +34,13 @@ interface FileInfo {
   mimeType: string;
 }
 
-export default function App({ prompt }: { prompt?: string }) {
+export default function App({ prompt , id }: { prompt?: string , id?: string}) {
   const [file, setFile] = useState<FileInfo | null>(null);
   const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
+  console.log("Prompt:", prompt);
+  console.log("SHG ID:", id);
 
   // Pick from device
   const pickFromDevice = async () => {
@@ -93,7 +95,7 @@ export default function App({ prompt }: { prompt?: string }) {
     setLoading(true);
     setStatus("Parsing file…");
     try {
-      const data = await getJsonData(file);
+      const data = await getJsonData(file,prompt);
       console.log("Raw server data:", data);
 
       if (data?.tables?.length > 0) {
@@ -153,7 +155,7 @@ export default function App({ prompt }: { prompt?: string }) {
       )}
 
       {tables.length > 0 && !loading && (
-        <TablesViewer tables={tables} isView={false} />
+        <TablesViewer tables={tables} isView={false} docType={prompt} id={id} />
       )}
 
       <ClearCache
