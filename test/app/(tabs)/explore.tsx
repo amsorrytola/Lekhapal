@@ -16,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import ClearCache from "../../components/ClearCache";
 import { getJsonData } from "../../backend/upload";
 import TablesViewer, { TableData } from "../../components/TablesViewer";
+import { router } from "expo-router";
 
 let Sharing: any = null;
 let Print: any = null;
@@ -91,27 +92,33 @@ export default function App({ prompt , id }: { prompt?: string , id?: string}) {
 
   // Parse file with backend
   const parseFile = async () => {
-    if (!file?.uri) return Alert.alert("Pick a file first");
-    setLoading(true);
-    setStatus("Parsing file…");
-    try {
-      const data = await getJsonData(file,prompt);
-      console.log("Raw server data:", data);
+  if (!file?.uri) return Alert.alert("Pick a file first");
+  setLoading(true);
+  setStatus("Parsing file…");
+  try {
+    const data = await getJsonData(file, prompt);
+    console.log("Raw server data:", data);
 
-      if (data?.tables?.length > 0) {
-        setTables(data.tables);
-        setStatus("Parsed successfully ✅");
-      } else {
-        setTables([]);
-        setStatus("No tables found");
-      }
-    } catch (e: any) {
-      Alert.alert("Parse error", e?.message || String(e));
-    } finally {
-      setLoading(false);
-      setStatus("");
+    if (data?.tables) {
+      // Navigate to new page with parsed data
+      router.push({
+        pathname: "/table-view",
+        params: {
+          tables: JSON.stringify(data.tables),
+          prompt: prompt || "",
+          id: id || "",
+        },
+      });
+    } else {
+      Alert.alert("No tables found");
     }
-  };
+  } catch (e: any) {
+    Alert.alert("Parse error", e?.message || String(e));
+  } finally {
+    setLoading(false);
+    setStatus("");
+  }
+};
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
