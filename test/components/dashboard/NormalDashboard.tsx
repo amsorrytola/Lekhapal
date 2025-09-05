@@ -33,7 +33,10 @@ export const NormalDashboard = ({ shgs }: { shgs: SHG[] }) => {
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => router.push("/shg?id=" + userShg.id)}
+        onPress={() => router.push({
+          pathname: "/shg",
+          params: { id: userShg.id },
+        })}
       >
         <Text style={styles.buttonText}>Start Uploading</Text>
       </TouchableOpacity>

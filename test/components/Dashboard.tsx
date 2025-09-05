@@ -9,32 +9,55 @@ export interface SHG {
   name: string;
   status: "Open" | "Close";
   employee?: string;
+  employee_email?: string;
 }
 
-const SUPERADMIN_EMAIL = "talhaansariitr@gmail.com";
+const SUPERADMIN_EMAIL = "dk7004570779@gmail.com";
 
 export default function DashboardScreen() {
   const [shgs, setShgs] = useState<SHG[]>([]);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   // ✅ Get current user and SHGs
   useEffect(() => {
     const fetchUserAndShgs = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        // 1️⃣ Get logged-in user
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
         if (error || !user) throw error || new Error("No user found");
 
-        setUserEmail(user.email);
+        const email = user.email;
+        setUserEmail(email);
 
-        // Fetch SHGs for this user
-        const { data, error: shgError } = await supabase
-          .from("shgs")
-          .select("id, name, status, employee");
+        // 2️⃣ Check if SuperAdmin
+        const superAdmin = email === SUPERADMIN_EMAIL;
+        setIsSuperAdmin(superAdmin);
 
-        if (shgError) throw shgError;
+        let shgData: SHG[] = [];
 
-        setShgs(data || []);
+        if (superAdmin) {
+          // SuperAdmin → fetch all SHGs
+          const { data, error: shgError } = await supabase
+            .from("shgs")
+            .select("id, name, status, employee, employee_email");
+          if (shgError) throw shgError;
+          shgData = data || [];
+        } else {
+          // Normal user → fetch only assigned SHGs
+          const { data, error: shgError } = await supabase
+            .from("shgs")
+            .select("id, name, status, employee, employee_email")
+            .eq("employee_email", email);
+          if (shgError) throw shgError;
+          shgData = data || [];
+        }
+
+        setShgs(shgData);
       } catch (err: any) {
         console.error("Error fetching SHGs:", err.message);
         Alert.alert("Error", err.message);
@@ -53,9 +76,6 @@ export default function DashboardScreen() {
       </View>
     );
   }
-
-  // ✅ Check if user is superadmin
-  const isSuperAdmin = userEmail === SUPERADMIN_EMAIL;
 
   return (
     <View style={styles.container}>

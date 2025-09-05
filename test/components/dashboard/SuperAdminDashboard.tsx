@@ -28,7 +28,10 @@ export const SuperAdminDashboard = ({
   };
 
   const handleEdit = (id: string) => {
-    router.push(`/editSHG?id=${id}`);
+    router.push({
+      pathname: "/editSHG",
+      params: { id },
+    });
   };
 
   const renderItem = ({ item, index }: { item: SHG; index: number }) => (
@@ -37,7 +40,10 @@ export const SuperAdminDashboard = ({
 
       <TouchableOpacity
         style={styles.cell}
-        onPress={() => router.push("/shg?id=" + item.id)}
+        onPress={() => router.push({
+          pathname: "/shg",
+          params: { id: item.id },
+        })}
       >
         <Text style={styles.link}>{item.name}</Text>
       </TouchableOpacity>
