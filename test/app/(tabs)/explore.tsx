@@ -97,15 +97,18 @@ export default function App({ prompt , id }: { prompt?: string , id?: string}) {
   setStatus("Parsing file…");
   try {
     const data = await getJsonData(file, prompt);
-    console.log("Raw server data:", data);
+    console.log("prompt:", prompt);
+    console.log("SHG ID:", id);
+    console.log("Raw server data:", data.tables);
+    const jsonStr = JSON.stringify(data.tables || []);
 
     if (data?.tables) {
       // Navigate to new page with parsed data
       router.push({
         pathname: "/table-view",
         params: {
-          tables: JSON.stringify(data.tables),
-          prompt: prompt || "",
+          data: jsonStr,
+          section: prompt || "",
           id: id || "",
         },
       });
@@ -162,7 +165,7 @@ export default function App({ prompt , id }: { prompt?: string , id?: string}) {
       )}
 
       {tables.length > 0 && !loading && (
-        <TablesViewer tables={tables} isView={false} docType={prompt} id={id} first={true}/>
+        <TablesViewer tables={tables} isView={false} docType={prompt} id={id}/>
       )}
 
       <ClearCache

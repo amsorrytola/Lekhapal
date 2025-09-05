@@ -88,13 +88,15 @@ export default function ShgSectionPage() {
   }
 
   const handleOpenDoc = (item: any, mode: "view" | "edit") => {
+    console.log(`handleOpenDoc - mode: ${mode}, item ID: ${item.id}`);
     const jsonStr = JSON.stringify(item.contents ?? {});
+    console.log("Document contents:", jsonStr);
     router.push({
       pathname: "/table-view",
       params: {
         data: jsonStr,
         id: idParam,
-        tableid : item.id,
+        tableid: item.id,
         section: sectionParam,
         view: mode === "view" ? "true" : "false",
       },

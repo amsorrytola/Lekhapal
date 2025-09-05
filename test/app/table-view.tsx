@@ -34,7 +34,7 @@ export default function TableViewPage() {
         isView={isViewMode}        // 👈 now dynamically controlled
         docType={section as string} // 👈 section passed instead of prompt
         id={id as string}           // SHG id
-        tableId={tableid as string} // 👈 pass tableid for editing
+        tableid={tableid as string} // 👈 pass tableid for editing
       />
     </ScrollView>
   );

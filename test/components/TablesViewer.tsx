@@ -1,3 +1,4 @@
+// components/TablesViewer.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -11,8 +12,8 @@ import {
   Dimensions,
 } from "react-native";
 import { supabase } from "../auth/supabaseClient";
+import { router } from "expo-router";
 
-// Generic Table Format
 export interface TableData {
   title: string;
   columns: string[];
@@ -29,16 +30,17 @@ export default function TablesViewer({
   id,
   docType,
   tableid,
-  first
+  first,
 }: {
   tables: any; // raw JSON can be object or array
   isView?: boolean;
   id?: string; // SHG id
   docType?: string;
-  tableid: string;
-  first?: boolean; // if true, only show first table (for SHG profile)
+  tableid?: string; // unique ID if editing an existing table
+  first?: boolean;
 }) {
   // 🔹 Normalize incoming data to TableData[]
+  console.log("Table" , tableid);
   const normalize = (raw: any): TableData[] => {
     if (Array.isArray(raw)) return raw;
 
@@ -88,6 +90,8 @@ export default function TablesViewer({
     }
     return [];
   };
+  console.log("Updating existing table with ID:", tableid);
+
 
   const [data, setData] = useState<TableData[]>(normalize(tables));
 
@@ -95,14 +99,13 @@ export default function TablesViewer({
   const hScrollRefs = useRef<any[]>([]);
   const scrollPositions = useRef<number[]>([]);
 
-  // Ensure refs/positions arrays match data length when data changes
   useEffect(() => {
     hScrollRefs.current = data.map((_, i) => hScrollRefs.current[i] ?? null);
     scrollPositions.current = data.map((_, i) => scrollPositions.current[i] ?? 0);
   }, [data]);
 
   // ---------------------------
-  // ✅ Save (upsert)
+  // ✅ Save (insert or update)
   // ---------------------------
   const handleSave = async () => {
     try {
@@ -121,32 +124,31 @@ export default function TablesViewer({
         return;
       }
 
-      // 🔹 Check if record exists
-      const { data: existing, error: fetchError } = await supabase
-        .from("shg_documents")
-        .select("id")
-        .eq("shg_id", id)
-        .eq("doc_type", docType)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
       let error;
-      if (existing) {
-        // 🔹 Update
-        ({ error } = await supabase
+
+      if (tableid) {
+        // 🔹 Update existing record
+        const { error: updateError } = await supabase
           .from("shg_documents")
-          .update({ contents: data })
-          .eq("id", existing.id));
+          .update({ contents: data, updated_at: new Date() })
+          .eq("id", tableid);
+
+        error = updateError;
       } else {
-        // 🔹 Insert
-        ({ error } = await supabase.from("shg_documents").insert([
+        // 🔹 Insert new record
+        const { error: insertError } = await supabase.from("shg_documents").insert([
           {
             shg_id: id,
             doc_type: docType,
             contents: data,
           },
-        ]));
+        ]);
+
+        error = insertError;
+        if (!error) {
+          // Navigate to dashboard after insert
+          router.replace("/(tabs)");
+        }
       }
 
       if (error) throw error;
@@ -156,14 +158,13 @@ export default function TablesViewer({
     }
   };
 
-  // Scroll helper: scroll left/right for table index `ti`
+  // Scroll helper
   const scrollBy = (ti: number, direction: "left" | "right") => {
     const ref = hScrollRefs.current[ti];
     if (!ref || typeof ref.scrollTo !== "function") return;
 
     const current = scrollPositions.current[ti] ?? 0;
     const containerWidth = Math.max(0, (data[ti]?.columns?.length ?? 0) * CELL_WIDTH);
-    // allow some padding from window width to compute max offset
     const maxOffset = Math.max(0, containerWidth - WINDOW_WIDTH + 40);
 
     const next =
@@ -204,7 +205,6 @@ export default function TablesViewer({
                 scrollPositions.current[ti] = e.nativeEvent.contentOffset.x;
               }}
               scrollEventThrottle={16}
-              // keep ref to programmatically scroll
               ref={(r) => {
                 hScrollRefs.current[ti] = r;
               }}
@@ -214,7 +214,7 @@ export default function TablesViewer({
               }}
             >
               <View>
-                {/* Header Row (editable columns) */}
+                {/* Header Row */}
                 <View style={[styles.row, styles.headerRow]}>
                   {table.columns.map((c: string, ci: number) => (
                     <View key={`h${ci}`} style={styles.cellContainer}>
@@ -257,7 +257,7 @@ export default function TablesViewer({
               </View>
             </ScrollView>
 
-            {/* Scroll buttons (small) */}
+            {/* Scroll buttons */}
             <View style={styles.scrollButtons}>
               <TouchableOpacity
                 style={styles.scrollBtn}
