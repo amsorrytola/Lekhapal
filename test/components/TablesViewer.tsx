@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,26 +7,21 @@ import {
   Button,
   StyleSheet,
   Alert,
+  TouchableOpacity,
+  Dimensions,
 } from "react-native";
-import { supabase } from "../auth/supabaseClient"; // 👈 your Supabase client
+import { supabase } from "../auth/supabaseClient";
 
+// Generic Table Format
 export interface TableData {
   title: string;
   columns: string[];
   rows: string[][];
 }
 
-function normalizeTable(table: TableData) {
-  if (!table) return table;
-  const colCount = table.columns?.length || 0;
-  const rows = (table.rows || []).map((r) => {
-    const row = Array.isArray(r) ? [...r] : [];
-    while (row.length < colCount) row.push("");
-    if (row.length > colCount) row.length = colCount;
-    return row;
-  });
-  return { ...table, rows };
-}
+const CELL_WIDTH = 140;
+const SCROLL_STEP = CELL_WIDTH * 3;
+const WINDOW_WIDTH = Dimensions.get("window").width;
 
 export default function TablesViewer({
   tables,
@@ -34,43 +29,77 @@ export default function TablesViewer({
   id,
   docType,
 }: {
-  tables: TableData[];
+  tables: any; // raw JSON can be object or array
   isView?: boolean;
   id?: string; // SHG id
   docType?: string; // document type
 }) {
-  const [tableList, setTableList] = useState(tables.map(normalizeTable));
-  const [activeIndex, setActiveIndex] = useState(0);
-  console.log("TablesViewer - tables:", tables);
-  console.log("TablesViewer - isView:", isView);
-  console.log("TablesViewer - SHG ID:", id);
-  console.log("TablesViewer - Document Type:", docType);
+  // 🔹 Normalize incoming data to TableData[]
+  const normalize = (raw: any): TableData[] => {
+    if (Array.isArray(raw)) return raw;
 
-  if (!tableList || tableList.length === 0) {
-    return <Text>No tables to display</Text>;
-  }
+    if (typeof raw === "object" && raw !== null) {
+      const arr: TableData[] = [];
 
-  const activeTable = tableList[activeIndex];
+      if (raw.shgProfile) {
+        arr.push({
+          title: "SHG PROFILE",
+          columns: ["Field", "Value"],
+          rows: Object.entries(raw.shgProfile).map(([k, v]) => [k, String(v)]),
+        });
+      }
 
-  const renderCell = (ri: number, ci: number, value: string) => (
-    <TextInput
-      key={`r${ri}c${ci}`}
-      style={styles.cell}
-      value={String(value ?? "")}
-      onChangeText={(txt) => {
-        const updatedRows = [...activeTable.rows];
-        updatedRows[ri] = [...updatedRows[ri]];
-        updatedRows[ri][ci] = txt;
+      if (raw.members) {
+        arr.push({
+          title: "DETAILS OF MEMBERS",
+          columns: [
+            "S.NO.",
+            "NAME",
+            "ID (IF ANY)",
+            "DATE OF JOINING",
+            "DATE OF LEAVING",
+          ],
+          rows: raw.members.map((m: any) => [
+            String(m.sNo ?? ""),
+            String(m.name ?? ""),
+            String(m.id ?? ""),
+            String(m.dateOfJoining ?? ""),
+            String(m.dateOfLeaving ?? ""),
+          ]),
+        });
+      }
 
-        const updated = { ...activeTable, rows: updatedRows };
-        const updatedList = [...tableList];
-        updatedList[activeIndex] = updated;
-        setTableList(updatedList);
-      }}
-    />
-  );
+      if (raw.balanceDetails) {
+        arr.push({
+          title: "BALANCE SHEET",
+          columns: ["Field", "Value"],
+          rows: Object.entries(raw.balanceDetails).map(([k, v]) => [
+            k,
+            Array.isArray(v) ? v.join(", ") : String(v ?? ""),
+          ]),
+        });
+      }
 
-  // ✅ Save function
+      return arr;
+    }
+    return [];
+  };
+
+  const [data, setData] = useState<TableData[]>(normalize(tables));
+
+  // refs to horizontal scrollviews per table and scroll positions
+  const hScrollRefs = useRef<any[]>([]);
+  const scrollPositions = useRef<number[]>([]);
+
+  // Ensure refs/positions arrays match data length when data changes
+  useEffect(() => {
+    hScrollRefs.current = data.map((_, i) => hScrollRefs.current[i] ?? null);
+    scrollPositions.current = data.map((_, i) => scrollPositions.current[i] ?? 0);
+  }, [data]);
+
+  // ---------------------------
+  // ✅ Save (upsert)
+  // ---------------------------
   const handleSave = async () => {
     try {
       if (!id || !docType) {
@@ -78,98 +107,184 @@ export default function TablesViewer({
         return;
       }
 
-      // Get the logged-in user
       const {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        Alert.alert("Error", "You must be logged in to save a table.");
+        Alert.alert("Error", "You must be logged in to save.");
         return;
       }
 
-      const { error } = await supabase.from("shg_documents").insert([
-        {
-          shg_id: id, // 👈 store SHG id
-          doc_type: docType, // 👈 store document type
-          contents: activeTable, // 👈 store JSONB
-        },
-      ]);
+      // 🔹 Check if record exists
+      const { data: existing, error: fetchError } = await supabase
+        .from("shg_documents")
+        .select("id")
+        .eq("shg_id", id)
+        .eq("doc_type", docType)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      let error;
+      if (existing) {
+        // 🔹 Update
+        ({ error } = await supabase
+          .from("shg_documents")
+          .update({ contents: data })
+          .eq("id", existing.id));
+      } else {
+        // 🔹 Insert
+        ({ error } = await supabase.from("shg_documents").insert([
+          {
+            shg_id: id,
+            doc_type: docType,
+            contents: data,
+          },
+        ]));
+      }
 
       if (error) throw error;
-
-      // Remove saved table from the list
-      const updatedList = tableList.filter((_, idx) => idx !== activeIndex);
-      setTableList(updatedList);
-      setActiveIndex(0);
-
-      Alert.alert("Success", "Table saved successfully!");
+      Alert.alert("Success", "Saved successfully!");
     } catch (err: any) {
       Alert.alert("Save Failed", err.message || "Something went wrong");
     }
   };
 
-  return (
-    <View style={{ flex: 1 }}>
-      {/* Tabs for switching tables */}
+  // Scroll helper: scroll left/right for table index `ti`
+  const scrollBy = (ti: number, direction: "left" | "right") => {
+    const ref = hScrollRefs.current[ti];
+    if (!ref || typeof ref.scrollTo !== "function") return;
+
+    const current = scrollPositions.current[ti] ?? 0;
+    const containerWidth = Math.max(0, (data[ti]?.columns?.length ?? 0) * CELL_WIDTH);
+    // allow some padding from window width to compute max offset
+    const maxOffset = Math.max(0, containerWidth - WINDOW_WIDTH + 40);
+
+    const next =
+      direction === "left"
+        ? Math.max(0, current - SCROLL_STEP)
+        : Math.min(maxOffset, current + SCROLL_STEP);
+
+    try {
+      ref.scrollTo({ x: next, animated: true });
+      scrollPositions.current[ti] = next;
+    } catch {
+      // silent
+    }
+  };
+
+  // ---------------------------
+  // ✅ Table Renderer
+  // ---------------------------
+  if (Array.isArray(data)) {
+    return (
       <ScrollView
-        horizontal
-        style={styles.tabBar}
-        showsHorizontalScrollIndicator={false}
+        style={{ flex: 1 }}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 24 }}
       >
-        {tableList.map((t, idx) => (
-          <Button
-            key={idx}
-            title={t.title || `Table ${idx + 1}`}
-            onPress={() => setActiveIndex(idx)}
-            color={idx === activeIndex ? "#1976D2" : "#666"}
-          />
-        ))}
-      </ScrollView>
+        {data.map((table, ti) => (
+          <View key={`t${ti}`} style={styles.card}>
+            <Text style={styles.subtitle}>{table.title}</Text>
 
-      {/* Table Display */}
-      <View style={styles.card}>
-        <Text style={styles.subtitle}>{activeTable.title}</Text>
-        <ScrollView horizontal>
-          <View>
-            {/* Header Row */}
-            <View style={[styles.row, styles.headerRow]}>
-              {activeTable.columns.map((c, i) => (
-                <Text key={`h${i}`} style={[styles.cell, styles.header]}>
-                  {c}
-                </Text>
-              ))}
-            </View>
+            {/* Inner horizontal scroll */}
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              showsHorizontalScrollIndicator={false}
+              onScroll={(e) => {
+                scrollPositions.current[ti] = e.nativeEvent.contentOffset.x;
+              }}
+              scrollEventThrottle={16}
+              // keep ref to programmatically scroll
+              ref={(r) => {
+                hScrollRefs.current[ti] = r;
+              }}
+              contentContainerStyle={{
+                flexDirection: "column",
+                minWidth: table.columns.length * CELL_WIDTH,
+              }}
+            >
+              <View>
+                {/* Header Row (editable columns) */}
+                <View style={[styles.row, styles.headerRow]}>
+                  {table.columns.map((c: string, ci: number) => (
+                    <View key={`h${ci}`} style={styles.cellContainer}>
+                      {isView ? (
+                        <Text style={[styles.cellText, styles.header]}>{c}</Text>
+                      ) : (
+                        <TextInput
+                          style={[styles.cellText, styles.header]}
+                          value={c}
+                          onChangeText={(txt) => {
+                            const updated = [...data];
+                            updated[ti].columns[ci] = txt;
+                            setData(updated);
+                          }}
+                        />
+                      )}
+                    </View>
+                  ))}
+                </View>
 
-            {/* Data Rows */}
-            {activeTable.rows.map((row, ri) => (
-              <View key={`r${ri}`} style={styles.row}>
-                {row.map((cell, ci) => renderCell(ri, ci, cell))}
+                {/* Data Rows */}
+                {table.rows.map((row: string[], ri: number) => (
+                  <View key={`r${ri}`} style={styles.row}>
+                    {row.map((cell, ci) => (
+                      <View key={`r${ri}c${ci}`} style={styles.cellContainer}>
+                        <TextInput
+                          style={styles.cellText}
+                          value={String(cell ?? "")}
+                          editable={!isView}
+                          onChangeText={(txt) => {
+                            const updated = [...data];
+                            updated[ti].rows[ri][ci] = txt;
+                            setData(updated);
+                          }}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-        </ScrollView>
+            </ScrollView>
 
-        {/* ✅ Save Button */}
+            {/* Scroll buttons (small) */}
+            <View style={styles.scrollButtons}>
+              <TouchableOpacity
+                style={styles.scrollBtn}
+                onPress={() => scrollBy(ti, "left")}
+              >
+                <Text style={styles.scrollBtnText}>◀</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.scrollBtn}
+                onPress={() => scrollBy(ti, "right")}
+              >
+                <Text style={styles.scrollBtnText}>▶</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+
         {!isView && (
-          <View style={{ marginTop: 12 }}>
-            <Button title="Save Table" onPress={handleSave} color="#4CAF50" />
+          <View style={{ marginTop: 12, marginHorizontal: 10 }}>
+            <Button title="Save" onPress={handleSave} color="#4CAF50" />
           </View>
         )}
-      </View>
-    </View>
-  );
+      </ScrollView>
+    );
+  }
+
+  return <Text>Unsupported document type</Text>;
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    backgroundColor: "#f0f0f0",
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
-  },
   card: {
     backgroundColor: "#fff",
     padding: 12,
@@ -189,16 +304,40 @@ const styles = StyleSheet.create({
   headerRow: {
     backgroundColor: "#e9f3ff",
   },
-  cell: {
+  cellContainer: {
+    width: CELL_WIDTH,
     borderWidth: 1,
     borderColor: "#ccc",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 44,
+  },
+  cellText: {
     padding: 6,
-    minWidth: 100,
     fontSize: 14,
     textAlign: "center",
+    width: "100%",
   },
   header: {
     fontWeight: "700",
     backgroundColor: "#d0e6ff",
+  },
+  scrollButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 8,
+  },
+  scrollBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1976D2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  scrollBtnText: {
+    color: "#fff",
+    fontWeight: "700",
   },
 });
