@@ -86,28 +86,39 @@ export const SuperAdminDashboard = ({
 
   return (
     <View style={{ flex: 1 }}>
-      <TouchableOpacity
-        style={styles.addBtn}
-        onPress={() => router.push("/addSHG")}
-      >
-        <Text style={styles.addText}>+ Add SHG</Text>
-      </TouchableOpacity>
+    {/* Add SHG button */}
+    <TouchableOpacity
+      style={styles.addBtn}
+      onPress={() => router.push("/addSHG")}
+    >
+      <Text style={styles.addText}>+ Add SHG</Text>
+    </TouchableOpacity>
 
-      <View style={styles.header}>
-        <Text style={styles.headerCell}>S.No.</Text>
-        <Text style={styles.headerCell}>SHG Name</Text>
-        <Text style={styles.headerCell}>Status</Text>
-        <Text style={styles.headerCell}>Edit</Text>
-        <Text style={styles.headerCell}>Delete</Text>
-        <Text style={styles.headerCell}>Employee</Text>
-      </View>
+    {/* 👤 User Management button */}
+    <TouchableOpacity
+      style={[styles.addBtn, { backgroundColor: "#0B3D91", marginBottom: 16 }]}
+      onPress={() => router.push("/admin-user-management")}
+    >
+      <Text style={styles.addText}>👤 Manage Users</Text>
+    </TouchableOpacity>
 
-      <FlatList
-        data={shgs}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-      />
+    {/* Table Header */}
+    <View style={styles.header}>
+      <Text style={styles.headerCell}>S.No.</Text>
+      <Text style={styles.headerCell}>SHG Name</Text>
+      <Text style={styles.headerCell}>Status</Text>
+      <Text style={styles.headerCell}>Edit</Text>
+      <Text style={styles.headerCell}>Delete</Text>
+      <Text style={styles.headerCell}>Employee</Text>
     </View>
+
+    {/* Table Rows */}
+    <FlatList
+      data={shgs}
+      keyExtractor={(item) => item.id}
+      renderItem={renderItem}
+    />
+  </View>
   );
 };
 

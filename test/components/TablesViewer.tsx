@@ -28,11 +28,15 @@ export default function TablesViewer({
   isView,
   id,
   docType,
+  tableid,
+  first
 }: {
   tables: any; // raw JSON can be object or array
   isView?: boolean;
   id?: string; // SHG id
-  docType?: string; // document type
+  docType?: string;
+  tableid: string;
+  first?: boolean; // if true, only show first table (for SHG profile)
 }) {
   // 🔹 Normalize incoming data to TableData[]
   const normalize = (raw: any): TableData[] => {

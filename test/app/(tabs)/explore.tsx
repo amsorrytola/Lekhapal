@@ -162,7 +162,7 @@ export default function App({ prompt , id }: { prompt?: string , id?: string}) {
       )}
 
       {tables.length > 0 && !loading && (
-        <TablesViewer tables={tables} isView={false} docType={prompt} id={id} />
+        <TablesViewer tables={tables} isView={false} docType={prompt} id={id} first={true}/>
       )}
 
       <ClearCache
