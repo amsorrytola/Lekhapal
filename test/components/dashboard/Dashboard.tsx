@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { supabase } from "@/auth/supabaseClient";
-import { NormalDashboard } from "./dashboard/NormalDashboard";
-import { SuperAdminDashboard } from "./dashboard/SuperAdminDashboard";
+import { NormalDashboard } from "./NormalDashboard";
+import { SuperAdminDashboard } from "./SuperAdminDashboard";
 
 export interface SHG {
   id: string;
