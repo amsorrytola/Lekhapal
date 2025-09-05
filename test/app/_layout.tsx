@@ -51,7 +51,7 @@ export default function RootLayout() {
       <Stack>
         {session ? (
           // ✅ User logged in → show tabs
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ headerShown: false }} />
         ) : (
           // ❌ No session → show auth flow
           <Stack.Screen

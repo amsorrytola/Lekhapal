@@ -13,9 +13,9 @@ import {
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import ClearCache from "../../components/ClearCache";
-import { getJsonData } from "../../backend/upload";
-import TablesViewer, { TableData } from "../../components/TablesViewer";
+import ClearCache from "../components/ClearCache";
+import { getJsonData } from "../backend/upload";
+import TablesViewer, { TableData } from "../components/TablesViewer";
 import { router } from "expo-router";
 
 let Sharing: any = null;
@@ -35,7 +35,7 @@ interface FileInfo {
   mimeType: string;
 }
 
-export default function App({ prompt , id }: { prompt?: string , id?: string}) {
+export default function App({ prompt, id }: { prompt?: string; id?: string }) {
   const [file, setFile] = useState<FileInfo | null>(null);
   const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -92,36 +92,36 @@ export default function App({ prompt , id }: { prompt?: string , id?: string}) {
 
   // Parse file with backend
   const parseFile = async () => {
-  if (!file?.uri) return Alert.alert("Pick a file first");
-  setLoading(true);
-  setStatus("Parsing file…");
-  try {
-    const data = await getJsonData(file, prompt);
-    console.log("prompt:", prompt);
-    console.log("SHG ID:", id);
-    console.log("Raw server data:", data.tables);
-    const jsonStr = JSON.stringify(data.tables || []);
+    if (!file?.uri) return Alert.alert("Pick a file first");
+    setLoading(true);
+    setStatus("Parsing file…");
+    try {
+      const data = await getJsonData(file, prompt);
+      console.log("prompt:", prompt);
+      console.log("SHG ID:", id);
+      console.log("Raw server data:", data.tables);
+      const jsonStr = JSON.stringify(data.tables || []);
 
-    if (data?.tables) {
-      // Navigate to new page with parsed data
-      router.push({
-        pathname: "/table-view",
-        params: {
-          data: jsonStr,
-          section: prompt || "",
-          id: id || "",
-        },
-      });
-    } else {
-      Alert.alert("No tables found");
+      if (data?.tables) {
+        // Navigate to new page with parsed data
+        router.push({
+          pathname: "/table-view",
+          params: {
+            data: jsonStr,
+            section: prompt || "",
+            id: id || "",
+          },
+        });
+      } else {
+        Alert.alert("No tables found");
+      }
+    } catch (e: any) {
+      Alert.alert("Parse error", e?.message || String(e));
+    } finally {
+      setLoading(false);
+      setStatus("");
     }
-  } catch (e: any) {
-    Alert.alert("Parse error", e?.message || String(e));
-  } finally {
-    setLoading(false);
-    setStatus("");
-  }
-};
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -148,7 +148,12 @@ export default function App({ prompt , id }: { prompt?: string , id?: string}) {
           {file.mimeType?.startsWith("image/") ? (
             <Image
               source={{ uri: file.uri }}
-              style={{ width: "100%", height: 200, marginTop: 8, borderRadius: 8 }}
+              style={{
+                width: "100%",
+                height: 200,
+                marginTop: 8,
+                borderRadius: 8,
+              }}
               resizeMode="contain"
             />
           ) : (
@@ -165,7 +170,7 @@ export default function App({ prompt , id }: { prompt?: string , id?: string}) {
       )}
 
       {tables.length > 0 && !loading && (
-        <TablesViewer tables={tables} isView={false} docType={prompt} id={id}/>
+        <TablesViewer tables={tables} isView={false} docType={prompt} id={id} />
       )}
 
       <ClearCache

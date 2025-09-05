@@ -41,55 +41,63 @@ export default function TablesViewer({
 }) {
   // 🔹 Normalize incoming data to TableData[]
   console.log("Table" , tableid);
-  const normalize = (raw: any): TableData[] => {
-    if (Array.isArray(raw)) return raw;
+  // inside TablesViewer.tsx
 
-    if (typeof raw === "object" && raw !== null) {
-      const arr: TableData[] = [];
+const normalize = (raw: any): TableData[] => {
+  let arr: TableData[] = [];
 
-      if (raw.shgProfile) {
-        arr.push({
-          title: "SHG PROFILE",
-          columns: ["Field", "Value"],
-          rows: Object.entries(raw.shgProfile).map(([k, v]) => [k, String(v)]),
-        });
-      }
-
-      if (raw.members) {
-        arr.push({
-          title: "DETAILS OF MEMBERS",
-          columns: [
-            "S.NO.",
-            "NAME",
-            "ID (IF ANY)",
-            "DATE OF JOINING",
-            "DATE OF LEAVING",
-          ],
-          rows: raw.members.map((m: any) => [
-            String(m.sNo ?? ""),
-            String(m.name ?? ""),
-            String(m.id ?? ""),
-            String(m.dateOfJoining ?? ""),
-            String(m.dateOfLeaving ?? ""),
-          ]),
-        });
-      }
-
-      if (raw.balanceDetails) {
-        arr.push({
-          title: "BALANCE SHEET",
-          columns: ["Field", "Value"],
-          rows: Object.entries(raw.balanceDetails).map(([k, v]) => [
-            k,
-            Array.isArray(v) ? v.join(", ") : String(v ?? ""),
-          ]),
-        });
-      }
-
-      return arr;
+  if (Array.isArray(raw)) {
+    arr = raw;
+  } else if (typeof raw === "object" && raw !== null) {
+    if (raw.shgProfile) {
+      arr.push({
+        title: "SHG PROFILE",
+        columns: ["Field", "Value"],
+        rows: Object.entries(raw.shgProfile).map(([k, v]) => [k, String(v)]),
+      });
     }
-    return [];
-  };
+
+    if (raw.members) {
+      arr.push({
+        title: "DETAILS OF MEMBERS",
+        columns: [
+          "S.NO.",
+          "NAME",
+          "ID (IF ANY)",
+          "DATE OF JOINING",
+          "DATE OF LEAVING",
+        ],
+        rows: raw.members.map((m: any) => [
+          String(m.sNo ?? ""),
+          String(m.name ?? ""),
+          String(m.id ?? ""),
+          String(m.dateOfJoining ?? ""),
+          String(m.dateOfLeaving ?? ""),
+        ]),
+      });
+    }
+
+    if (raw.balanceDetails) {
+      arr.push({
+        title: "BALANCE SHEET",
+        columns: ["Field", "Value"],
+        rows: Object.entries(raw.balanceDetails).map(([k, v]) => [
+          k,
+          Array.isArray(v) ? v.join(", ") : String(v ?? ""),
+        ]),
+      });
+    }
+  }
+
+  // 🔹 filter by docType if provided
+  if (docType) {
+    const dt = docType.toLowerCase();
+    arr = arr.filter((table) => table.title.toLowerCase() === dt);
+  }
+
+  return arr;
+};
+
   console.log("Updating existing table with ID:", tableid);
 
 
