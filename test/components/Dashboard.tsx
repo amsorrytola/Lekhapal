@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { supabase } from "@/auth/supabaseClient";
 import { NormalDashboard } from "./dashboard/NormalDashboard";
 import { SuperAdminDashboard } from "./dashboard/SuperAdminDashboard";
@@ -12,52 +12,35 @@ export interface SHG {
   employee_email?: string;
 }
 
-const SUPERADMIN_EMAIL = "dk7004570779@gmail.com";
-
 export default function DashboardScreen() {
   const [shgs, setShgs] = useState<SHG[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  // ✅ Get current user and SHGs
+  // ✅ Get current user and all SHGs
   useEffect(() => {
     const fetchUserAndShgs = async () => {
       try {
-        // 1️⃣ Get logged-in user
+        // 1️⃣ Get logged-in user (optional)
         const {
           data: { user },
           error,
         } = await supabase.auth.getUser();
         if (error || !user) throw error || new Error("No user found");
 
-        const email = user.email;
-        setUserEmail(email);
+        // 2️⃣ Decide role (if you still want UI separation)
+        // Here you can still mark some as super admin if needed,
+        // or just leave everyone as normal.
+        // For now, default is false.
+        setIsSuperAdmin(false);
 
-        // 2️⃣ Check if SuperAdmin
-        const superAdmin = email === SUPERADMIN_EMAIL;
-        setIsSuperAdmin(superAdmin);
+        // 3️⃣ Fetch ALL SHGs (for everyone)
+        const { data, error: shgError } = await supabase
+          .from("shgs")
+          .select("id, name, status, employee, employee_email");
+        if (shgError) throw shgError;
 
-        let shgData: SHG[] = [];
-
-        if (superAdmin) {
-          // SuperAdmin → fetch all SHGs
-          const { data, error: shgError } = await supabase
-            .from("shgs")
-            .select("id, name, status, employee, employee_email");
-          if (shgError) throw shgError;
-          shgData = data || [];
-        } else {
-          // Normal user → fetch only assigned SHGs
-          const { data, error: shgError } = await supabase
-            .from("shgs")
-            .select("id, name, status, employee, employee_email")
-            .eq("employee_email", email);
-          if (shgError) throw shgError;
-          shgData = data || [];
-        }
-
-        setShgs(shgData);
+        setShgs(data || []);
       } catch (err: any) {
         console.error("Error fetching SHGs:", err.message);
         Alert.alert("Error", err.message);

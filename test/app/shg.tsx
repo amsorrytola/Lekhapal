@@ -119,6 +119,14 @@ export default function ShgDetailsPage() {
             )}
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
           />
+          <TouchableOpacity
+            style={[styles.sectionBtn, { backgroundColor: "#0B3D91", marginTop: 20 }]}
+            onPress={() => router.push("/shg-pdf")}
+          >
+            <Text style={[styles.sectionText, { color: "#ffffff", textAlign: "center" }]}>
+              Generate Consolidated PDF Report
+            </Text>
+          </TouchableOpacity>
         </>
       ) : (
         <>
